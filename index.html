@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#17313b" />
+    <meta
+      name="description"
+      content="听一句：当前句循环朗读，按下一句后再继续，给手写抄录留出自己的节奏。"
+    />
+    <title>听一句 · 逐句循环朗读</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./segmenter.js" defer></script>
+    <script src="./player.js" defer></script>
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <noscript>
+      <div class="noscript-banner">听一句需要开启 JavaScript，才能连接本机语音服务。</div>
+    </noscript>
+
+    <div class="app-shell">
+      <header class="site-header">
+        <a class="brand" href="./index.html" aria-label="听一句首页">
+          <span class="brand-mark" aria-hidden="true">↻</span>
+          <span class="brand-name">听一句</span>
+        </a>
+        <div class="header-note">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span>不上传正文 · 本机 Kokoro</span>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="page-title">
+          <div class="hero-copy">
+            <p class="eyebrow">HANDWRITING COMPANION <span>/</span> 01</p>
+            <h1 id="page-title">把一句话，<em>听到手上。</em></h1>
+            <p class="hero-description">
+              粘贴正文，当前句会一遍遍停在耳边。<br />
+              你写完了，再亲手把它交给下一句。
+            </p>
+          </div>
+
+          <div class="hero-loop" aria-label="读完当前句，等待后再次朗读" role="img">
+            <div class="hero-loop-glow"></div>
+            <div class="hero-orbit hero-orbit-one"></div>
+            <div class="hero-orbit hero-orbit-two"></div>
+            <div class="hero-loop-core">
+              <span class="hero-loop-symbol" aria-hidden="true">↻</span>
+              <span class="hero-loop-label">CURRENT<br />SENTENCE</span>
+            </div>
+            <div class="hero-loop-caption hero-loop-caption-top">读完</div>
+            <div class="hero-loop-caption hero-loop-caption-bottom">再来一遍</div>
+          </div>
+        </section>
+
+        <div class="workspace-grid">
+          <div class="setup-column">
+            <section class="surface input-card" aria-labelledby="input-title">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">原文 <span>/</span> 01</p>
+                  <h2 id="input-title">放入要抄写的正文</h2>
+                </div>
+                <div class="character-count" aria-live="polite">
+                  <strong id="characterCount">0</strong>
+                  <span>字</span>
+                </div>
+              </div>
+
+              <label class="sr-only" for="articleInput">要朗读的正文</label>
+              <textarea
+                id="articleInput"
+                rows="13"
+                spellcheck="false"
+                placeholder="粘贴要抄写的正文；换行可以拆成新的片段。"
+              ></textarea>
+
+              <div class="input-footer">
+                <span id="editHint">正文只留在当前页面，刷新后不会保留。</span>
+                <button class="text-button" id="sampleButton" type="button">填入示例</button>
+              </div>
+
+              <button class="action-button action-button-primary action-button-wide" id="startButton" type="button">
+                <span id="startButtonLabel">开始朗读</span>
+                <span class="button-shortcut">⌘ / Ctrl ↵</span>
+              </button>
+            </section>
+
+            <section class="surface settings-card" aria-labelledby="settings-title">
+              <div class="section-heading section-heading-compact">
+                <div>
+                  <p class="eyebrow">节奏 <span>/</span> 02</p>
+                  <h2 id="settings-title">调到适合你的速度</h2>
+                </div>
+                <span class="settings-glyph" aria-hidden="true">≈</span>
+              </div>
+
+              <div class="setting-block">
+                <label class="setting-label" for="voiceSelect">
+                  <span>声音</span>
+                  <span class="setting-value" id="voiceValue">检测中</span>
+                </label>
+                <select id="voiceSelect" aria-describedby="voiceHint">
+                  <option value="">正在连接本地音色…</option>
+                </select>
+                <div class="setting-hint-row">
+                  <p class="setting-hint" id="voiceHint" role="status">正在连接本机 Kokoro 语音服务。</p>
+                  <button class="text-button voice-refresh-button" id="refreshVoicesButton" type="button">重新连接</button>
+                </div>
+              </div>
+
+              <div class="setting-block">
+                <label class="setting-label" for="rateInput">
+                  <span>语速</span>
+                  <output class="setting-value" id="rateValue" for="rateInput">0.85×</output>
+                </label>
+                <input id="rateInput" type="range" min="0.5" max="1.5" step="0.05" value="0.85" />
+                <div class="range-scale" aria-hidden="true"><span>慢</span><span>标准</span><span>快</span></div>
+              </div>
+
+              <div class="setting-block">
+                <label class="setting-label" for="intervalInput">
+                  <span>重复间隔</span>
+                  <output class="setting-value" id="intervalValue" for="intervalInput">1.0 秒</output>
+                </label>
+                <input id="intervalInput" type="range" min="0" max="5" step="0.5" value="1" />
+                <div class="range-scale" aria-hidden="true"><span>紧接</span><span>停一下</span><span>更从容</span></div>
+              </div>
+
+              <div class="settings-footnote">
+                <span class="tiny-loop" aria-hidden="true">↻</span>
+                <span>调整语速或声音会从当前句重新读起。</span>
+              </div>
+            </section>
+          </div>
+
+          <div class="reader-column">
+            <section class="reader-card" id="readerCard" data-state="idle" aria-labelledby="reader-title">
+              <div class="reader-heading">
+                <div>
+                  <p class="eyebrow eyebrow-on-dark">当前句 <span>/</span> 03</p>
+                  <h2 id="reader-title">把注意力留在这一行</h2>
+                </div>
+                <div class="status-chip" id="statusChip">
+                  <span class="status-dot" aria-hidden="true"></span>
+                  <span id="statusLabel">待开始</span>
+                </div>
+              </div>
+
+              <div class="sentence-display">
+                <div class="display-rail" aria-hidden="true">
+                  <span class="rail-label">LOOP</span>
+                  <span class="rail-line"></span>
+                  <span class="rail-mark">↻</span>
+                </div>
+
+                <div class="sentence-content">
+                  <div class="sentence-index" aria-live="polite">
+                    <strong id="currentIndex">—</strong>
+                    <span>/</span>
+                    <span id="totalSentences">0</span>
+                    <span>句</span>
+                  </div>
+                  <p class="sentence-text sentence-text-placeholder" id="currentSentence">
+                    你的第一句，会在这里停住。
+                  </p>
+                  <p class="cycle-message" id="cycleMessage">输入正文后，从第一句开始。</p>
+                </div>
+
+                <div class="sentence-orbit" aria-hidden="true">
+                  <span class="orbit-label orbit-label-top">读完</span>
+                  <span class="orbit-ring orbit-ring-large"></span>
+                  <span class="orbit-ring orbit-ring-small"></span>
+                  <span class="orbit-dot"></span>
+                  <span class="orbit-label orbit-label-bottom">再来</span>
+                </div>
+              </div>
+
+              <div class="transport-controls" aria-label="朗读控制">
+                <button class="transport-button transport-button-secondary" id="previousButton" type="button">
+                  <span class="transport-icon" aria-hidden="true">←</span>
+                  <span>上一句</span>
+                </button>
+                <button class="transport-button transport-button-secondary" id="pauseButton" type="button">
+                  <span class="transport-icon pause-icon" aria-hidden="true">Ⅱ</span>
+                  <span id="pauseButtonLabel">暂停</span>
+                </button>
+                <button class="transport-button transport-button-next" id="nextButton" type="button">
+                  <span id="nextButtonLabel">下一句</span>
+                  <span class="transport-icon" aria-hidden="true">→</span>
+                </button>
+              </div>
+
+              <div class="reader-feedback" id="feedback" role="status" aria-live="polite"></div>
+              <div class="reader-corner-note">只在你准备好时<br />走向下一句。</div>
+            </section>
+
+            <section class="surface queue-card" aria-labelledby="queue-title">
+              <div class="queue-heading">
+                <div>
+                  <p class="eyebrow">队列 <span>/</span> 04</p>
+                  <h2 id="queue-title">句子列表</h2>
+                </div>
+                <span class="queue-count" id="queueCount">0 句</span>
+              </div>
+              <ol class="sentence-list" id="sentenceList">
+                <li class="empty-list-item">开始朗读后，分好的句子会出现在这里。</li>
+              </ol>
+              <div class="queue-footer">
+                <span class="queue-footer-mark" aria-hidden="true">·</span>
+                <span>按原文顺序排列；列表不能代替“下一句”。</span>
+              </div>
+            </section>
+          </div>
+        </div>
+      </main>
+
+      <footer class="site-footer">
+        <span>听一句 / 逐句循环朗读</span>
+        <span class="footer-shortcuts">← → 切句&nbsp;&nbsp; 空格 暂停&nbsp;&nbsp; Esc 结束</span>
+      </footer>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>
