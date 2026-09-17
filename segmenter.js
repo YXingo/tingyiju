@@ -22,12 +22,14 @@
     return HAS_WORD.test(text);
   }
 
-  function pushIfMeaningful(result, buffer) {
+  function pushNaturalSentence(result, buffer, breakType) {
     var sentence = buffer.trim();
-    if (sentence && isMeaningful(sentence)) result.push(sentence);
+    if (!sentence || !isMeaningful(sentence)) return false;
+    result.push({ text: sentence, breakType: breakType });
+    return true;
   }
 
-  function splitNaturalSentences(input) {
+  function splitNaturalSentenceRecords(input) {
     if (typeof input !== "string" || !input.trim()) return [];
     var text = input.replace(/\r\n?/g, "\n");
     var result = [];
@@ -36,8 +38,12 @@
     for (var index = 0; index < text.length; index += 1) {
       var character = text[index];
       if (character === "\n") {
-        pushIfMeaningful(result, buffer);
+        var previousCount = result.length;
+        var pushed = pushNaturalSentence(result, buffer, "newline");
         buffer = "";
+        if (!pushed && result.length === previousCount && result.length) {
+          result[result.length - 1].breakType = "newline";
+        }
         continue;
       }
       buffer += character;
@@ -50,12 +56,16 @@
           index += 1;
           buffer += text[index];
         }
-        pushIfMeaningful(result, buffer);
+        pushNaturalSentence(result, buffer, "sentence");
         buffer = "";
       }
     }
-    pushIfMeaningful(result, buffer);
+    pushNaturalSentence(result, buffer, "end");
     return result;
+  }
+
+  function splitNaturalSentences(input) {
+    return splitNaturalSentenceRecords(input).map(function (record) { return record.text; });
   }
 
   function normalizeLengthOptions(options) {
@@ -192,8 +202,12 @@
 
   function splitSemanticClauses(input, options) {
     var normalized = normalizeLengthOptions(options) || { minLength: 10, maxLength: 18 };
-    return splitNaturalSentences(input).reduce(function (result, sentence, sentenceIndex) {
-      return result.concat(expandExtremeCandidates(splitClauseCandidates(sentence), normalized, sentenceIndex));
+    return splitNaturalSentenceRecords(input).reduce(function (result, record, sentenceIndex) {
+      var clauses = expandExtremeCandidates(splitClauseCandidates(record.text), normalized, sentenceIndex);
+      if (record.breakType === "newline" && clauses.length) {
+        clauses[clauses.length - 1].hardBreakAfter = true;
+      }
+      return result.concat(clauses);
     }, []);
   }
 
@@ -274,7 +288,7 @@
       sentenceClauses = [];
     }
     clauses.forEach(function (clause, index) {
-      if (sentenceClauses.length && clause.sentenceIndex !== sentenceClauses[0].sentenceIndex) flush();
+      if (sentenceClauses.length && sentenceClauses[sentenceClauses.length - 1].hardBreakAfter) flush();
       sentenceClauses.push(clause);
       if (index === clauses.length - 1) flush();
     });

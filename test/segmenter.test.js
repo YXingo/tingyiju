@@ -57,6 +57,15 @@ test("目标长度是软约束，普通语义短句不会为了达标被硬切",
   assert.equal(clauses.map((clause) => clause.text).join(""), text);
 });
 
+test("目标长度允许超过原来的 60 字范围", () => {
+  const text = "这是一段刻意写得很长的完整语义短句用来验证较大的目标长度不会被内部的固定上限截断也不会因为长度设置较大而丢失原文内容并且整段文字仍然应该按照原文完整保留。";
+  const clauses = splitSemanticClauses(text, { minLength: 40, maxLength: 120 });
+
+  assert.ok(Array.from(text).length > 60);
+  assert.equal(clauses.length, 1);
+  assert.equal(clauses[0].text, text);
+});
+
 test("极长且没有常规停顿的短句才启用顿号或词边界备用切分", () => {
   const listText = "苹果、香蕉、橘子、葡萄、桃子、梨子、草莓、蓝莓、樱桃、柚子都需要逐项登记。";
   const listClauses = splitSemanticClauses(listText, { minLength: 10, maxLength: 18 });
@@ -73,19 +82,34 @@ test("极长且没有常规停顿的短句才启用顿号或词边界备用切�
   });
 });
 
-test("跟写模式按完整短句滑动，并在新自然句重置重叠", () => {
+test("跟写模式跨普通句号连续滑动", () => {
   const text = "坚持理论联系实际，把学习成果转化为行动，把责任落实到具体工作中。新的一句，从这里开始。";
   const plan = createReadingPlan(text, { minLength: 8, maxLength: 18, mode: "follow" });
 
   assert.deepEqual(plan.map((item) => item.text), [
     "坚持理论联系实际，把学习成果转化为行动，",
     "把学习成果转化为行动，把责任落实到具体工作中。",
+    "把责任落实到具体工作中。新的一句，",
     "新的一句，从这里开始。"
   ]);
   assert.equal(plan[0].overlapText, "坚持理论联系实际，");
   assert.equal(plan[0].newText, "把学习成果转化为行动，");
-  assert.equal(plan[2].overlapText, "新的一句，");
-  assert.equal(plan[2].newText, "从这里开始。");
+  assert.equal(plan[2].overlapText, "把责任落实到具体工作中。");
+  assert.equal(plan[2].newText, "新的一句，");
+  assert.equal(plan[3].overlapText, "新的一句，");
+  assert.equal(plan[3].newText, "从这里开始。");
+});
+
+test("跟写模式在换行处重置重叠", () => {
+  const text = "第一句，第一段。\n第二句，第二段。";
+  const plan = createReadingPlan(text, { minLength: 8, maxLength: 18, mode: "follow" });
+
+  assert.deepEqual(plan.map((item) => item.text), [
+    "第一句，第一段。",
+    "第二句，第二段。"
+  ]);
+  assert.equal(plan[1].overlapText, "第二句，");
+  assert.equal(plan[1].newText, "第二段。");
 });
 
 test("中英混杂时按文字切换朗读语言，数字留在当前语言", () => {

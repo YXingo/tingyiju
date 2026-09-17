@@ -287,7 +287,7 @@
   function clampInteger(value, fallback) {
     var number = Math.round(Number(value));
     if (!Number.isFinite(number)) return fallback;
-    return Math.min(60, Math.max(4, number));
+    return Math.max(4, number);
   }
 
   function getLengthRange() {
@@ -308,13 +308,13 @@
       ? "每次保留上一条完整短句，读满设定次数后自动接入下一条。"
       : "按逗号、分号等停顿拆成短句，再合并到目标长度。";
     elements.lengthHint.textContent = followMode
-      ? "只决定极长短句何时启用备用切分；滑动始终以完整短句为单位。"
-      : "这是合并短句的软目标；完整短句可以超过期望长度。";
+      ? "只决定极长短句何时启用备用切分；普通句号后继续保留上一条末分句，换行才重置。"
+      : "这是合并短句的软目标；最长目标不设固定上限，完整短句也不会被硬切。";
     elements.readerUnitLabel.textContent = followMode ? "当前跟写" : "当前段";
     elements.readerUnitSuffix.textContent = followMode ? "步" : "段";
     elements.queueTitle.textContent = followMode ? "跟写顺序" : "段落列表";
     elements.queueFooterText.textContent = followMode
-      ? "下划线是上一条短句；每次自动接入一条新短句。"
+      ? "下划线是上一条短句；普通句号后继续接入，换行才重新开始。"
       : "按原文顺序排列；列表不能代替“下一段”。";
     elements.autoAdvanceBlock.hidden = !followMode;
     elements.settingsFootnoteText.textContent = followMode

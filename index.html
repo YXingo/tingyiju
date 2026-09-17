@@ -152,15 +152,15 @@
                 <div class="length-input-grid">
                   <label class="length-number-field" for="minLengthInput">
                     <span>期望最短</span>
-                    <input id="minLengthInput" type="number" min="4" max="60" step="1" value="10" inputmode="numeric" aria-describedby="lengthHint" />
+                    <input id="minLengthInput" type="number" min="4" step="1" value="10" inputmode="numeric" aria-describedby="lengthHint" />
                   </label>
                   <span class="length-separator" aria-hidden="true">—</span>
                   <label class="length-number-field" for="maxLengthInput">
                     <span>期望最长</span>
-                    <input id="maxLengthInput" type="number" min="4" max="60" step="1" value="18" inputmode="numeric" aria-describedby="lengthHint" />
+                    <input id="maxLengthInput" type="number" min="4" step="1" value="18" inputmode="numeric" aria-describedby="lengthHint" />
                   </label>
                 </div>
-                <p class="setting-hint" id="lengthHint">这是合并短句的软目标；完整短句可以超过期望长度。</p>
+                <p class="setting-hint" id="lengthHint">这是合并短句的软目标；跟写模式在普通句号后继续保留上下文。</p>
               </div>
 
               <div class="setting-block auto-advance-block" id="autoAdvanceBlock" hidden>
