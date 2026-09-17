@@ -163,6 +163,16 @@
                 <p class="setting-hint" id="lengthHint">这是合并短句的软目标；完整短句可以超过期望长度。</p>
               </div>
 
+              <div class="setting-block auto-advance-block" id="autoAdvanceBlock" hidden>
+                <label class="setting-label" for="autoAdvanceInput">
+                  <span>自动前移</span>
+                  <output class="setting-value" id="autoAdvanceValue" for="autoAdvanceInput">读 3 遍</output>
+                </label>
+                <input id="autoAdvanceInput" type="range" min="1" max="10" step="1" value="3" />
+                <div class="range-scale" aria-hidden="true"><span>1 遍</span><span>5 遍</span><span>10 遍</span></div>
+                <p class="setting-hint">当前组合完整读满设定次数后，自动接入下一条短句。</p>
+              </div>
+
               <div class="setting-block">
                 <label class="setting-label" for="intervalInput">
                   <span>重复间隔</span>
@@ -174,7 +184,7 @@
 
               <div class="settings-footnote">
                 <span class="tiny-loop" aria-hidden="true">↻</span>
-                <span>调整语速或声音会重读当前段；调整朗读方式或目标长度会重新分段。</span>
+                <span id="settingsFootnoteText">调整语速或声音会重读当前段；调整朗读方式或目标长度会重新分段。</span>
               </div>
             </section>
           </div>

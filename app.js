@@ -9,6 +9,7 @@
   var DEFAULT_VOICE_ID = "zf_001";
   var DEFAULT_MIN_LENGTH = 10;
   var DEFAULT_MAX_LENGTH = 18;
+  var DEFAULT_AUTO_ADVANCE_AFTER = 3;
   var VOICES = [
     { id: "zf_001", label: "女声 · 清晰" },
     { id: "zf_004", label: "女声 · 温和" },
@@ -32,6 +33,9 @@
     followModeInput: document.getElementById("followModeInput"),
     modeValue: document.getElementById("modeValue"),
     modeHint: document.getElementById("modeHint"),
+    autoAdvanceBlock: document.getElementById("autoAdvanceBlock"),
+    autoAdvanceInput: document.getElementById("autoAdvanceInput"),
+    autoAdvanceValue: document.getElementById("autoAdvanceValue"),
     minLengthInput: document.getElementById("minLengthInput"),
     maxLengthInput: document.getElementById("maxLengthInput"),
     lengthValue: document.getElementById("lengthValue"),
@@ -57,6 +61,7 @@
     queueCount: document.getElementById("queueCount"),
     queueTitle: document.getElementById("queue-title"),
     queueFooterText: document.getElementById("queueFooterText"),
+    settingsFootnoteText: document.getElementById("settingsFootnoteText"),
     toast: document.getElementById("toast")
   };
 
@@ -155,8 +160,13 @@
 
   function renderState(snapshot, event) {
     var state = snapshot.state;
+    var autoAdvanceAfter = Number(snapshot.settings.autoAdvanceAfter) || 0;
+    var completedPlays = Number(snapshot.completedPlays) || 0;
+    var isLastStep = snapshot.total > 0 && snapshot.currentIndex === snapshot.total - 1;
     elements.readerCard.dataset.state = state;
-    elements.statusLabel.textContent = stateLabel(state);
+    elements.statusLabel.textContent = state === STATES.WAITING && autoAdvanceAfter > 0 && completedPlays >= autoAdvanceAfter
+      ? isLastStep ? "准备完成" : "准备前移"
+      : stateLabel(state);
     elements.startButtonLabel.textContent = state === STATES.IDLE ? "开始朗读" : "从头开始";
     elements.pauseButtonLabel.textContent = state === STATES.PAUSED ? "继续" : state === STATES.ERROR ? "重试" : "暂停";
     var followMode = getReadingMode() === "follow";
@@ -167,10 +177,16 @@
     elements.nextButton.disabled = !snapshot.total || snapshot.currentIndex < 0 || state === STATES.IDLE || state === STATES.COMPLETED;
     elements.pauseButton.disabled = ![STATES.SPEAKING, STATES.WAITING, STATES.PAUSED, STATES.ERROR].includes(state);
 
-    if (state === STATES.SPEAKING) elements.cycleMessage.textContent = followMode
-      ? "较淡的是上一短句；向前一步后，它会退出，新短句接进来。"
+    if (state === STATES.SPEAKING) elements.cycleMessage.textContent = followMode && autoAdvanceAfter > 0
+      ? "正在读第 " + Math.min(completedPlays + 1, autoAdvanceAfter) + " / " + autoAdvanceAfter + " 遍；读满后自动向前一步。"
+      : followMode
+        ? "较淡的是上一短句；向前一步后，它会退出，新短句接进来。"
       : "这一段正在耳边播放；读完后会停一下，再从头开始。";
-    else if (state === STATES.WAITING) elements.cycleMessage.textContent = "先留一点空白。下一轮仍然是当前内容。";
+    else if (state === STATES.WAITING) elements.cycleMessage.textContent = autoAdvanceAfter > 0 && completedPlays >= autoAdvanceAfter
+      ? isLastStep ? "最后一步已经读满，停顿后自动完成。" : "本步已经读满，停顿后会自动接入下一条短句。"
+      : autoAdvanceAfter > 0
+        ? "已经读完 " + completedPlays + " / " + autoAdvanceAfter + " 遍；停顿后继续。"
+        : "先留一点空白。下一轮仍然是当前内容。";
     else if (state === STATES.PAUSED) elements.cycleMessage.textContent = "已停在当前位置；继续时会从头重新读起。";
     else if (state === STATES.COMPLETED) elements.cycleMessage.textContent = "这篇文章读完了。你可以结束，或重新从头开始。";
     else if (state === STATES.ERROR) elements.cycleMessage.textContent = "朗读没有继续；请检查本地服务后重试。";
@@ -289,7 +305,7 @@
     var followMode = getReadingMode() === "follow";
     elements.modeValue.textContent = followMode ? "跟写" : "逐段";
     elements.modeHint.textContent = followMode
-      ? "每次保留上一条完整短句，再接入下一条；遇到句号或换行重新开始。"
+      ? "每次保留上一条完整短句，读满设定次数后自动接入下一条。"
       : "按逗号、分号等停顿拆成短句，再合并到目标长度。";
     elements.lengthHint.textContent = followMode
       ? "只决定极长短句何时启用备用切分；滑动始终以完整短句为单位。"
@@ -298,8 +314,12 @@
     elements.readerUnitSuffix.textContent = followMode ? "步" : "段";
     elements.queueTitle.textContent = followMode ? "跟写顺序" : "段落列表";
     elements.queueFooterText.textContent = followMode
-      ? "下划线是上一条短句；每次只接入一条新短句。"
+      ? "下划线是上一条短句；每次自动接入一条新短句。"
       : "按原文顺序排列；列表不能代替“下一段”。";
+    elements.autoAdvanceBlock.hidden = !followMode;
+    elements.settingsFootnoteText.textContent = followMode
+      ? "每步读满设定次数后自动前移；语速、声音或次数改变时，当前步重新计数。"
+      : "调整语速或声音会重读当前段；调整朗读方式或目标长度会重新分段。";
     elements.previousButtonLabel.textContent = followMode ? "退回一步" : "上一段";
     if (player.state !== STATES.COMPLETED) elements.nextButtonLabel.textContent = followMode ? "向前一步" : "下一段";
   }
@@ -315,6 +335,23 @@
     } else if (!silent) {
       renderSentenceList([], -1);
     }
+    handleAutoAdvanceChange(true);
+  }
+
+  function clampAutoAdvance(value) {
+    var number = Math.round(Number(value));
+    if (!Number.isFinite(number)) return DEFAULT_AUTO_ADVANCE_AFTER;
+    return Math.min(10, Math.max(1, number));
+  }
+
+  function handleAutoAdvanceChange(silent) {
+    var count = clampAutoAdvance(elements.autoAdvanceInput.value);
+    elements.autoAdvanceInput.value = String(count);
+    elements.autoAdvanceValue.textContent = "读 " + count + " 遍";
+    player.updateSettings(
+      { autoAdvanceAfter: getReadingMode() === "follow" ? count : 0 },
+      silent ? { silent: true } : undefined
+    );
   }
 
   function previewLengthRange() {
@@ -385,6 +422,7 @@
   elements.rateInput.addEventListener("input", function () { handleRateChange(false); });
   elements.segmentModeInput.addEventListener("change", function () { handleModeChange(false); });
   elements.followModeInput.addEventListener("change", function () { handleModeChange(false); });
+  elements.autoAdvanceInput.addEventListener("input", function () { handleAutoAdvanceChange(false); });
   elements.minLengthInput.addEventListener("input", previewLengthRange);
   elements.maxLengthInput.addEventListener("input", previewLengthRange);
   elements.minLengthInput.addEventListener("change", function () { handleLengthChange(elements.minLengthInput, false); });

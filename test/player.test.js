@@ -144,6 +144,74 @@ test("最后一句点击下一句后完成并停止音频", async () => {
   assert.equal(audio.instances[0].pauseCount, 1);
 });
 
+test("达到设定朗读次数后自动前移到下一步", async () => {
+  const { clock, audio, requests, player } = setup();
+  player.updateSettings({ autoAdvanceAfter: 2 }, { silent: true });
+  player.start(["甲乙。", "乙丙。"]);
+  await flush();
+
+  audio.instances[0].finish();
+  assert.equal(player.completedPlays, 1);
+  assert.equal(player.state, STATES.WAITING);
+  clock.runNext();
+  assert.equal(audio.instances[0].playCount, 2);
+
+  audio.instances[0].finish();
+  assert.equal(player.completedPlays, 2);
+  clock.runNext();
+  await flush();
+  assert.equal(player.currentIndex, 1);
+  assert.equal(player.completedPlays, 0);
+  assert.equal(requests.at(-1).payload.text, "乙丙。");
+});
+
+test("最后一步读满设定次数后自动完成", async () => {
+  const { clock, audio, player } = setup();
+  player.updateSettings({ autoAdvanceAfter: 1 }, { silent: true });
+  player.start(["最后一步。"]);
+  await flush();
+
+  audio.instances[0].finish();
+  assert.equal(player.state, STATES.WAITING);
+  clock.runNext();
+  assert.equal(player.state, STATES.COMPLETED);
+  assert.equal(player.completedPlays, 1);
+});
+
+test("读满后在等待期暂停，继续时直接前移而不多读一遍", async () => {
+  const { clock, audio, player } = setup();
+  player.updateSettings({ autoAdvanceAfter: 1 }, { silent: true });
+  player.start(["第一步。", "第二步。"]);
+  await flush();
+
+  audio.instances[0].finish();
+  assert.equal(clock.size(), 1);
+  player.pause();
+  assert.equal(clock.size(), 0);
+  player.resume();
+  await flush();
+  assert.equal(player.currentIndex, 1);
+  assert.equal(player.completedPlays, 0);
+  assert.equal(audio.instances.length, 2);
+});
+
+test("手动前移和修改自动次数都会从零重新计数", async () => {
+  const { audio, player } = setup();
+  player.updateSettings({ autoAdvanceAfter: 3 }, { silent: true });
+  player.start(["第一步。", "第二步。"]);
+  await flush();
+  audio.instances[0].finish();
+  assert.equal(player.completedPlays, 1);
+
+  player.next();
+  await flush();
+  assert.equal(player.completedPlays, 0);
+  player.updateSettings({ autoAdvanceAfter: 4 }, { silent: true });
+  await flush();
+  assert.equal(player.completedPlays, 0);
+  assert.equal(player.settings.autoAdvanceAfter, 4);
+});
+
 test("请求包含选定音色与语速，中英混合文本不拆分", async () => {
   const { requests, player } = setup();
   player.updateSettings({

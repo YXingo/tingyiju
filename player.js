@@ -33,7 +33,8 @@
       this.audio = null;
       this.audioUrl = null;
       this.abortController = null;
-      this.settings = { rate: 0.85, repeatInterval: 1, voiceProfile: null };
+      this.completedPlays = 0;
+      this.settings = { rate: 0.85, repeatInterval: 1, autoAdvanceAfter: 0, voiceProfile: null };
     }
 
     isSupported() {
@@ -45,6 +46,7 @@
         state: this.state,
         currentIndex: this.currentIndex,
         total: this.sentences.length,
+        completedPlays: this.completedPlays,
         settings: Object.assign({}, this.settings)
       };
     }
@@ -93,14 +95,32 @@
       this._releaseAudio();
     }
 
-    _scheduleRepeat(version) {
+    _handlePlaybackEnded(version) {
       if (version !== this.version || this.state !== STATES.SPEAKING) return;
-      this._setState(STATES.WAITING, "当前内容读完了，稍后会再读一遍。", "default");
+      var target = Math.max(0, Math.round(Number(this.settings.autoAdvanceAfter) || 0));
+      this.completedPlays = target > 0 ? this.completedPlays + 1 : 0;
+      var shouldAdvance = target > 0 && this.completedPlays >= target;
+      var isLast = this.currentIndex >= this.sentences.length - 1;
+      var message = "当前内容读完了，稍后会再读一遍。";
+      if (shouldAdvance && isLast) message = "最后一步已读满 " + target + " 遍，稍后完成。";
+      else if (shouldAdvance) message = "当前内容已读满 " + target + " 遍，稍后自动向前一步。";
+      else if (target > 0) message = "已读 " + this.completedPlays + " / " + target + " 遍，稍后再读一遍。";
+      this._setState(STATES.WAITING, message, "default");
       this.timer = this.setTimeout(() => {
-        if (version !== this.version || this.state !== STATES.WAITING || !this.audio) return;
+        if (version !== this.version || this.state !== STATES.WAITING) return;
         this.timer = null;
+        if (shouldAdvance) {
+          if (isLast) this.complete();
+          else this.next();
+          return;
+        }
+        if (!this.audio) return;
         this.audio.currentTime = 0;
-        this._setState(STATES.SPEAKING, "正在重复当前内容。", "default");
+        this._setState(
+          STATES.SPEAKING,
+          target > 0 ? "正在朗读第 " + (this.completedPlays + 1) + " / " + target + " 遍。" : "正在重复当前内容。",
+          "default"
+        );
         var playResult = this.audio.play();
         if (playResult && typeof playResult.catch === "function") {
           playResult.catch(() => this._handlePlaybackError(version));
@@ -141,7 +161,7 @@
         var audio = new this.AudioConstructor();
         audio.preload = "auto";
         audio.src = this.audioUrl;
-        audio.onended = () => this._scheduleRepeat(version);
+        audio.onended = () => this._handlePlaybackEnded(version);
         audio.onerror = () => this._handlePlaybackError(version);
         this.audio = audio;
         var playResult = audio.play();
@@ -189,6 +209,7 @@
       this._invalidate();
       this.sentences = nextSentences;
       this.currentIndex = 0;
+      this.completedPlays = 0;
       this._emitCurrent();
       return this._speakCurrent();
     }
@@ -196,6 +217,7 @@
     previous() {
       if (!this.sentences.length || this.currentIndex <= 0) return false;
       this.currentIndex -= 1;
+      this.completedPlays = 0;
       this._invalidate();
       this._emitCurrent();
       return this._speakCurrent();
@@ -205,6 +227,7 @@
       if (!this.sentences.length || this.currentIndex < 0) return false;
       if (this.currentIndex >= this.sentences.length - 1) return this.complete();
       this.currentIndex += 1;
+      this.completedPlays = 0;
       this._invalidate();
       this._emitCurrent();
       return this._speakCurrent();
@@ -219,6 +242,11 @@
 
     resume() {
       if (this.state !== STATES.PAUSED) return false;
+      var target = Math.max(0, Math.round(Number(this.settings.autoAdvanceAfter) || 0));
+      if (target > 0 && this.completedPlays >= target) {
+        if (this.currentIndex >= this.sentences.length - 1) return this.complete();
+        return this.next();
+      }
       return this._speakCurrent();
     }
 
@@ -240,6 +268,7 @@
     end() {
       this._invalidate();
       this.currentIndex = -1;
+      this.completedPlays = 0;
       this._emitCurrent();
       this._setState(STATES.IDLE, "朗读已结束，文章仍保留。", "default");
       return true;
@@ -249,6 +278,7 @@
       this._invalidate();
       this.sentences = [];
       this.currentIndex = -1;
+      this.completedPlays = 0;
       this._emitCurrent();
       this._setState(STATES.IDLE, "文章已修改，请重新开始。", "default");
       return true;
@@ -258,10 +288,16 @@
       var next = nextSettings || {};
       var rateChanged = next.rate !== undefined && Number(next.rate) !== this.settings.rate;
       var voiceProfileChanged = next.voiceProfile !== undefined && next.voiceProfile !== this.settings.voiceProfile;
+      var nextAutoAdvanceAfter = next.autoAdvanceAfter !== undefined
+        ? Math.max(0, Math.round(Number(next.autoAdvanceAfter) || 0))
+        : this.settings.autoAdvanceAfter;
+      var autoAdvanceChanged = next.autoAdvanceAfter !== undefined && nextAutoAdvanceAfter !== this.settings.autoAdvanceAfter;
       if (next.rate !== undefined) this.settings.rate = Number(next.rate);
       if (next.repeatInterval !== undefined) this.settings.repeatInterval = Math.max(0, Number(next.repeatInterval) || 0);
+      if (next.autoAdvanceAfter !== undefined) this.settings.autoAdvanceAfter = nextAutoAdvanceAfter;
       if (next.voiceProfile !== undefined) this.settings.voiceProfile = next.voiceProfile || null;
-      if ((rateChanged || voiceProfileChanged) && (this.state === STATES.SPEAKING || this.state === STATES.WAITING)) {
+      if (rateChanged || voiceProfileChanged || autoAdvanceChanged) this.completedPlays = 0;
+      if ((rateChanged || voiceProfileChanged || autoAdvanceChanged) && (this.state === STATES.SPEAKING || this.state === STATES.WAITING)) {
         this._invalidate();
         this._speakCurrent();
       }
