@@ -121,6 +121,25 @@
               </div>
 
               <div class="setting-block">
+                <div class="setting-label">
+                  <span>每段字数</span>
+                  <output class="setting-value" id="lengthValue" for="minLengthInput maxLengthInput">10–18 字</output>
+                </div>
+                <div class="length-input-grid">
+                  <label class="length-number-field" for="minLengthInput">
+                    <span>期望最短</span>
+                    <input id="minLengthInput" type="number" min="4" max="60" step="1" value="10" inputmode="numeric" aria-describedby="lengthHint" />
+                  </label>
+                  <span class="length-separator" aria-hidden="true">—</span>
+                  <label class="length-number-field" for="maxLengthInput">
+                    <span>最长上限</span>
+                    <input id="maxLengthInput" type="number" min="4" max="60" step="1" value="18" inputmode="numeric" aria-describedby="lengthHint" />
+                  </label>
+                </div>
+                <p class="setting-hint" id="lengthHint">优先在标点和词语边界切分，再尽量让各段长度接近。</p>
+              </div>
+
+              <div class="setting-block">
                 <label class="setting-label" for="intervalInput">
                   <span>重复间隔</span>
                   <output class="setting-value" id="intervalValue" for="intervalInput">1.0 秒</output>
@@ -131,7 +150,7 @@
 
               <div class="settings-footnote">
                 <span class="tiny-loop" aria-hidden="true">↻</span>
-                <span>调整语速或声音会从当前句重新读起。</span>
+                <span>调整语速或声音会重读当前段；调整字数范围会重新分段。</span>
               </div>
             </section>
           </div>

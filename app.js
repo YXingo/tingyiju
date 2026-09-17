@@ -7,6 +7,8 @@
   var SpeechPlayer = playerApi.SpeechPlayer;
   var SAMPLE_TEXT = "认真学习党的理论知识，积极参加集体活动。\n把对党的认识写进真实经历，把对未来的承诺落实到每一天。";
   var DEFAULT_VOICE_ID = "zf_001";
+  var DEFAULT_MIN_LENGTH = 10;
+  var DEFAULT_MAX_LENGTH = 18;
   var VOICES = [
     { id: "zf_001", label: "女声 · 清晰" },
     { id: "zf_004", label: "女声 · 温和" },
@@ -26,6 +28,9 @@
     voiceHint: document.getElementById("voiceHint"),
     rateInput: document.getElementById("rateInput"),
     rateValue: document.getElementById("rateValue"),
+    minLengthInput: document.getElementById("minLengthInput"),
+    maxLengthInput: document.getElementById("maxLengthInput"),
+    lengthValue: document.getElementById("lengthValue"),
     intervalInput: document.getElementById("intervalInput"),
     intervalValue: document.getElementById("intervalValue"),
     readerCard: document.getElementById("readerCard"),
@@ -201,7 +206,7 @@
       setFeedback("本地语音服务未连接，请先点击“重新连接”。", "error");
       return;
     }
-    var sentences = segmenter.splitSentences(elements.articleInput.value);
+    var sentences = segmenter.splitSentences(elements.articleInput.value, getLengthRange());
     if (!sentences.length) {
       setFeedback("先放入一段包含文字的正文；纯空白或纯标点不会开始朗读。", "error");
       elements.articleInput.focus();
@@ -220,6 +225,50 @@
     var value = Number(elements.rateInput.value);
     elements.rateValue.textContent = value.toFixed(2) + "×";
     player.updateSettings({ rate: value }, silent ? { silent: true } : undefined);
+  }
+
+  function clampInteger(value, fallback) {
+    var number = Math.round(Number(value));
+    if (!Number.isFinite(number)) return fallback;
+    return Math.min(60, Math.max(4, number));
+  }
+
+  function getLengthRange() {
+    return {
+      minLength: clampInteger(elements.minLengthInput.value, DEFAULT_MIN_LENGTH),
+      maxLength: clampInteger(elements.maxLengthInput.value, DEFAULT_MAX_LENGTH)
+    };
+  }
+
+  function previewLengthRange() {
+    var minLength = Number(elements.minLengthInput.value);
+    var maxLength = Number(elements.maxLengthInput.value);
+    if (!Number.isFinite(minLength) || !Number.isFinite(maxLength) || minLength > maxLength) {
+      elements.lengthValue.textContent = "请检查范围";
+      return;
+    }
+    elements.lengthValue.textContent = Math.round(minLength) + "–" + Math.round(maxLength) + " 字";
+  }
+
+  function handleLengthChange(changedInput, silent) {
+    var minLength = clampInteger(elements.minLengthInput.value, DEFAULT_MIN_LENGTH);
+    var maxLength = clampInteger(elements.maxLengthInput.value, DEFAULT_MAX_LENGTH);
+    if (minLength > maxLength) {
+      if (changedInput === elements.minLengthInput) maxLength = minLength;
+      else minLength = maxLength;
+    }
+    elements.minLengthInput.value = String(minLength);
+    elements.maxLengthInput.value = String(maxLength);
+    elements.minLengthInput.max = String(maxLength);
+    elements.maxLengthInput.min = String(minLength);
+    previewLengthRange();
+
+    if (!silent && player.sentences.length) {
+      player.clearForContentChange();
+      elements.editHint.textContent = "分句范围已更新，请重新开始朗读。";
+      setFeedback("已按新的字数范围准备重新分段。", "default");
+      showToast("分句范围已更新，请重新开始。");
+    }
   }
 
   function handleIntervalChange(silent) {
@@ -256,6 +305,10 @@
   elements.voiceSelect.addEventListener("change", function () { applyVoice(elements.voiceSelect.value); });
   elements.refreshVoicesButton.addEventListener("click", function () { checkService(true); });
   elements.rateInput.addEventListener("input", function () { handleRateChange(false); });
+  elements.minLengthInput.addEventListener("input", previewLengthRange);
+  elements.maxLengthInput.addEventListener("input", previewLengthRange);
+  elements.minLengthInput.addEventListener("change", function () { handleLengthChange(elements.minLengthInput, false); });
+  elements.maxLengthInput.addEventListener("change", function () { handleLengthChange(elements.maxLengthInput, false); });
   elements.intervalInput.addEventListener("input", function () { handleIntervalChange(false); });
   document.addEventListener("keydown", handleKeydown);
   document.addEventListener("visibilitychange", function () { if (document.hidden) player.pauseForVisibility(); });
@@ -263,6 +316,7 @@
   setupVoices();
   updateCharacterCount();
   handleRateChange(true);
+  handleLengthChange(null, true);
   handleIntervalChange(true);
   renderCurrent({ index: -1, sentence: "", total: 0 });
   renderState(player.getSnapshot(), { message: "正在连接本机 Kokoro 语音服务。", tone: "default" });
