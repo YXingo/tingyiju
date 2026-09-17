@@ -516,6 +516,20 @@ textarea:focus {
   border-top: 1px solid var(--line);
 }
 
+fieldset.setting-block {
+  min-width: 0;
+  padding-right: 0;
+  padding-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: 0;
+}
+
+fieldset.setting-block legend {
+  width: 100%;
+  padding: 0;
+}
+
 .setting-label {
   display: flex;
   align-items: baseline;
@@ -583,6 +597,72 @@ select:disabled {
 .voice-refresh-button:disabled {
   color: var(--ink-faint);
   border-bottom-color: transparent;
+}
+
+.mode-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 4px;
+  background: var(--paper-soft);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.mode-option {
+  position: relative;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.mode-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.mode-option > span {
+  display: grid;
+  min-height: 57px;
+  gap: 3px;
+  align-content: center;
+  padding: 8px 12px;
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  transition: color 180ms ease, background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.mode-option strong {
+  color: inherit;
+  font-size: 12px;
+}
+
+.mode-option small {
+  overflow: hidden;
+  color: var(--ink-faint);
+  font-size: 9px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mode-option input:checked + span {
+  color: var(--ink);
+  background: var(--white);
+  border-color: rgba(95, 200, 178, 0.38);
+  box-shadow: 0 5px 14px rgba(30, 67, 70, 0.08);
+}
+
+.mode-option input:checked + span small {
+  color: var(--coral-deep);
+}
+
+.mode-option input:focus-visible + span {
+  outline: 3px solid var(--mint-deep);
+  outline-offset: 3px;
 }
 
 .length-input-grid {
@@ -825,6 +905,18 @@ input[type="range"] {
 
 .sentence-text-placeholder {
   color: rgba(251, 252, 248, 0.41);
+}
+
+.sentence-overlap {
+  color: rgba(218, 237, 230, 0.52);
+  text-decoration: underline;
+  text-decoration-color: rgba(237, 137, 105, 0.62);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.2em;
+}
+
+.sentence-new {
+  color: var(--paper);
 }
 
 .cycle-message {
@@ -1079,6 +1171,10 @@ input[type="range"] {
   counter-increment: sentence-list;
 }
 
+.queue-text {
+  min-width: 0;
+}
+
 .sentence-list li.is-current {
   color: var(--ink);
   background: rgba(155, 226, 206, 0.23);
@@ -1088,6 +1184,13 @@ input[type="range"] {
 .sentence-list li.is-current::before {
   color: var(--coral-deep);
   font-weight: 700;
+}
+
+.queue-overlap {
+  color: var(--ink-faint);
+  text-decoration: underline;
+  text-decoration-color: rgba(237, 137, 105, 0.5);
+  text-underline-offset: 0.18em;
 }
 
 .empty-list-item {

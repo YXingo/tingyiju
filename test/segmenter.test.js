@@ -1,6 +1,11 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { splitSentences, splitSpeechRuns } = require("../segmenter.js");
+const {
+  createReadingPlan,
+  splitSemanticClauses,
+  splitSentences,
+  splitSpeechRuns
+} = require("../segmenter.js");
 
 test("按中文和英文句末标点分句，并保留连续标点", () => {
   assert.deepEqual(splitSentences("第一句。第二句！第三句？"), ["第一句。", "第二句！", "第三句？"]);
@@ -27,48 +32,60 @@ test("逗号、顿号、分号和冒号不默认拆句", () => {
   assert.deepEqual(splitSentences("认真学习，积极实践；不断进步。"), ["认真学习，积极实践；不断进步。"]);
 });
 
-test("启用长度范围后优先使用自然停顿，并保持原文不变", () => {
+test("语义短句只在强弱标点处切分，并保持原文不变", () => {
   const text = "这是一个很长的句子，里面包含很多需要抄写的内容，而且我们希望它能够自然地分成长度相近的几个部分，避免等待太久。";
-  const parts = splitSentences(text, { minLength: 10, maxLength: 18 });
-  const lengths = parts.map((part) => Array.from(part).length);
+  const clauses = splitSemanticClauses(text, { minLength: 10, maxLength: 18 });
 
-  assert.equal(parts.join(""), text);
-  assert.ok(parts[0].endsWith("，"));
-  assert.ok(parts[1].endsWith("，"));
-  assert.ok(lengths.every((length) => length <= 18));
-  assert.ok(Math.max(...lengths) - Math.min(...lengths) <= 6);
+  assert.equal(clauses.map((clause) => clause.text).join(""), text);
+  assert.deepEqual(clauses.map((clause) => clause.boundary), ["soft", "soft", "soft", "sentence"]);
 });
 
-test("没有标点时也会均衡分段，并严格遵守最长上限", () => {
-  const text = "甲".repeat(40) + "。";
-  const parts = splitSentences(text, { minLength: 10, maxLength: 18 });
-  const lengths = parts.map((part) => Array.from(part).length);
+test("逐段模式合并相邻短句，但不跨越分号和自然句", () => {
+  const text = "先观察，再记录；然后核对，再提交。下一句很短。";
+  const plan = createReadingPlan(text, { minLength: 8, maxLength: 14, mode: "segment" });
 
-  assert.equal(parts.join(""), text);
-  assert.ok(lengths.every((length) => length <= 18));
-  assert.ok(Math.max(...lengths) - Math.min(...lengths) <= 1);
+  assert.deepEqual(plan.map((item) => item.text), ["先观察，再记录；", "然后核对，再提交。", "下一句很短。"]);
+  assert.equal(plan.map((item) => item.text).join(""), text);
 });
 
-test("自适应分段避免切断中文词和英文单词", () => {
-  const text = "我们希望它能够自然地分成长度相近的部分，并保留 English words 的完整边界。";
-  const parts = splitSentences(text, { minLength: 8, maxLength: 14 });
+test("目标长度是软约束，普通语义短句不会为了达标被硬切", () => {
+  const text = "这是一个完整而且超过期望最长字数的语义短句，下一条很短。";
+  const clauses = splitSemanticClauses(text, { minLength: 8, maxLength: 14 });
 
-  assert.equal(parts.join(""), text);
-  parts.slice(0, -1).forEach((part, index) => {
-    const previous = Array.from(part).at(-1);
-    const next = Array.from(parts[index + 1])[0];
-    assert.equal(/[A-Za-z0-9]/.test(previous) && /[A-Za-z0-9]/.test(next), false);
+  assert.ok(Array.from(clauses[0].text).length > 14);
+  assert.equal(clauses[0].boundary, "soft");
+  assert.equal(clauses.map((clause) => clause.text).join(""), text);
+});
+
+test("极长且没有常规停顿的短句才启用顿号或词边界备用切分", () => {
+  const listText = "苹果、香蕉、橘子、葡萄、桃子、梨子、草莓、蓝莓、樱桃、柚子都需要逐项登记。";
+  const listClauses = splitSemanticClauses(listText, { minLength: 10, maxLength: 18 });
+  const plainText = "我们希望它能够自然地分成长度相近的部分同时保留完整的英文单词 EnglishBoundary 并避免不必要的停顿。";
+  const plainClauses = splitSemanticClauses(plainText, { minLength: 8, maxLength: 14 });
+
+  assert.ok(listClauses.length > 1);
+  assert.ok(listClauses[0].text.endsWith("、"));
+  assert.equal(listClauses.map((clause) => clause.text).join(""), listText);
+  assert.equal(plainClauses.map((clause) => clause.text).join(""), plainText);
+  plainClauses.slice(0, -1).forEach((clause, index) => {
+    const next = plainClauses[index + 1];
+    assert.equal(/[A-Za-z0-9]$/.test(clause.text) && /^[A-Za-z0-9]/.test(next.text), false);
   });
-  assert.equal(parts.some((part, index) => part.endsWith("长") && parts[index + 1]?.startsWith("度")), false);
 });
 
-test("最短与最长无法同时满足时，优先保证最长上限和长度均衡", () => {
-  const text = "乙".repeat(19);
-  const parts = splitSentences(text, { minLength: 10, maxLength: 10 });
-  const lengths = parts.map((part) => Array.from(part).length);
+test("跟写模式按完整短句滑动，并在新自然句重置重叠", () => {
+  const text = "坚持理论联系实际，把学习成果转化为行动，把责任落实到具体工作中。新的一句，从这里开始。";
+  const plan = createReadingPlan(text, { minLength: 8, maxLength: 18, mode: "follow" });
 
-  assert.deepEqual(lengths.sort((a, b) => a - b), [9, 10]);
-  assert.equal(parts.join(""), text);
+  assert.deepEqual(plan.map((item) => item.text), [
+    "坚持理论联系实际，把学习成果转化为行动，",
+    "把学习成果转化为行动，把责任落实到具体工作中。",
+    "新的一句，从这里开始。"
+  ]);
+  assert.equal(plan[0].overlapText, "坚持理论联系实际，");
+  assert.equal(plan[0].newText, "把学习成果转化为行动，");
+  assert.equal(plan[2].overlapText, "新的一句，");
+  assert.equal(plan[2].newText, "从这里开始。");
 });
 
 test("中英混杂时按文字切换朗读语言，数字留在当前语言", () => {

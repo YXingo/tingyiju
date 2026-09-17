@@ -95,12 +95,12 @@
 
     _scheduleRepeat(version) {
       if (version !== this.version || this.state !== STATES.SPEAKING) return;
-      this._setState(STATES.WAITING, "当前句读完了，稍后会再读一遍。", "default");
+      this._setState(STATES.WAITING, "当前内容读完了，稍后会再读一遍。", "default");
       this.timer = this.setTimeout(() => {
         if (version !== this.version || this.state !== STATES.WAITING || !this.audio) return;
         this.timer = null;
         this.audio.currentTime = 0;
-        this._setState(STATES.SPEAKING, "正在重复当前句。", "default");
+        this._setState(STATES.SPEAKING, "正在重复当前内容。", "default");
         var playResult = this.audio.play();
         if (playResult && typeof playResult.catch === "function") {
           playResult.catch(() => this._handlePlaybackError(version));
@@ -169,7 +169,7 @@
       }
       var text = this.sentences[this.currentIndex];
       var version = this.version;
-      this._setState(STATES.SPEAKING, "正在生成并播放当前句。首次生成会稍慢。", "default");
+      this._setState(STATES.SPEAKING, "正在生成并播放当前内容。首次生成会稍慢。", "default");
       this._loadAndPlay(version, text);
       return true;
     }
@@ -213,7 +213,7 @@
     pause() {
       if (this.state !== STATES.SPEAKING && this.state !== STATES.WAITING) return false;
       this._invalidate();
-      this._setState(STATES.PAUSED, "已暂停。继续时会从当前句句首重新朗读。", "default");
+      this._setState(STATES.PAUSED, "已暂停。继续时会从当前内容开头重新朗读。", "default");
       return true;
     }
 
@@ -233,7 +233,7 @@
     complete() {
       if (this.currentIndex < 0 || !this.sentences.length) return false;
       this._invalidate();
-      this._setState(STATES.COMPLETED, "已完成。文章仍保留，再次开始会从第一句读起。", "success");
+      this._setState(STATES.COMPLETED, "已完成。文章仍保留，再次开始会从头读起。", "success");
       return true;
     }
 

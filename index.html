@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#17313b" />
     <meta
       name="description"
-      content="听一句：当前句循环朗读，按下一句后再继续，给手写抄录留出自己的节奏。"
+      content="听一句：按语义短句分段循环朗读，支持逐段与跟写模式，给手写抄录留出自己的节奏。"
     />
     <title>听一句 · 逐句循环朗读</title>
     <link rel="stylesheet" href="./styles.css" />
@@ -120,9 +120,33 @@
                 <div class="range-scale" aria-hidden="true"><span>慢</span><span>标准</span><span>快</span></div>
               </div>
 
+              <fieldset class="setting-block mode-setting">
+                <legend class="setting-label">
+                  <span>朗读方式</span>
+                  <span class="setting-value" id="modeValue">逐段</span>
+                </legend>
+                <div class="mode-switch" aria-describedby="modeHint">
+                  <label class="mode-option">
+                    <input id="segmentModeInput" type="radio" name="readingMode" value="segment" checked />
+                    <span>
+                      <strong>逐段</strong>
+                      <small>短句合并成一段</small>
+                    </span>
+                  </label>
+                  <label class="mode-option">
+                    <input id="followModeInput" type="radio" name="readingMode" value="follow" />
+                    <span>
+                      <strong>跟写</strong>
+                      <small>保留上一短句</small>
+                    </span>
+                  </label>
+                </div>
+                <p class="setting-hint" id="modeHint">按逗号、分号等停顿拆成短句，再合并到目标长度。</p>
+              </fieldset>
+
               <div class="setting-block">
                 <div class="setting-label">
-                  <span>每段字数</span>
+                  <span>目标长度</span>
                   <output class="setting-value" id="lengthValue" for="minLengthInput maxLengthInput">10–18 字</output>
                 </div>
                 <div class="length-input-grid">
@@ -132,11 +156,11 @@
                   </label>
                   <span class="length-separator" aria-hidden="true">—</span>
                   <label class="length-number-field" for="maxLengthInput">
-                    <span>最长上限</span>
+                    <span>期望最长</span>
                     <input id="maxLengthInput" type="number" min="4" max="60" step="1" value="18" inputmode="numeric" aria-describedby="lengthHint" />
                   </label>
                 </div>
-                <p class="setting-hint" id="lengthHint">优先在标点和词语边界切分，再尽量让各段长度接近。</p>
+                <p class="setting-hint" id="lengthHint">这是合并短句的软目标；完整短句可以超过期望长度。</p>
               </div>
 
               <div class="setting-block">
@@ -150,7 +174,7 @@
 
               <div class="settings-footnote">
                 <span class="tiny-loop" aria-hidden="true">↻</span>
-                <span>调整语速或声音会重读当前段；调整字数范围会重新分段。</span>
+                <span>调整语速或声音会重读当前段；调整朗读方式或目标长度会重新分段。</span>
               </div>
             </section>
           </div>
@@ -159,7 +183,7 @@
             <section class="reader-card" id="readerCard" data-state="idle" aria-labelledby="reader-title">
               <div class="reader-heading">
                 <div>
-                  <p class="eyebrow eyebrow-on-dark">当前句 <span>/</span> 03</p>
+                  <p class="eyebrow eyebrow-on-dark"><span id="readerUnitLabel">当前段</span> <span>/</span> 03</p>
                   <h2 id="reader-title">把注意力留在这一行</h2>
                 </div>
                 <div class="status-chip" id="statusChip">
@@ -180,12 +204,12 @@
                     <strong id="currentIndex">—</strong>
                     <span>/</span>
                     <span id="totalSentences">0</span>
-                    <span>句</span>
+                    <span id="readerUnitSuffix">段</span>
                   </div>
                   <p class="sentence-text sentence-text-placeholder" id="currentSentence">
-                    你的第一句，会在这里停住。
+                    你的第一段，会在这里停住。
                   </p>
-                  <p class="cycle-message" id="cycleMessage">输入正文后，从第一句开始。</p>
+                  <p class="cycle-message" id="cycleMessage">输入正文后，从第一段开始。</p>
                 </div>
 
                 <div class="sentence-orbit" aria-hidden="true">
@@ -200,36 +224,36 @@
               <div class="transport-controls" aria-label="朗读控制">
                 <button class="transport-button transport-button-secondary" id="previousButton" type="button">
                   <span class="transport-icon" aria-hidden="true">←</span>
-                  <span>上一句</span>
+                  <span id="previousButtonLabel">上一段</span>
                 </button>
                 <button class="transport-button transport-button-secondary" id="pauseButton" type="button">
                   <span class="transport-icon pause-icon" aria-hidden="true">Ⅱ</span>
                   <span id="pauseButtonLabel">暂停</span>
                 </button>
                 <button class="transport-button transport-button-next" id="nextButton" type="button">
-                  <span id="nextButtonLabel">下一句</span>
+                  <span id="nextButtonLabel">下一段</span>
                   <span class="transport-icon" aria-hidden="true">→</span>
                 </button>
               </div>
 
               <div class="reader-feedback" id="feedback" role="status" aria-live="polite"></div>
-              <div class="reader-corner-note">只在你准备好时<br />走向下一句。</div>
+              <div class="reader-corner-note">只在你准备好时<br />走向下一步。</div>
             </section>
 
             <section class="surface queue-card" aria-labelledby="queue-title">
               <div class="queue-heading">
                 <div>
                   <p class="eyebrow">队列 <span>/</span> 04</p>
-                  <h2 id="queue-title">句子列表</h2>
+                  <h2 id="queue-title">段落列表</h2>
                 </div>
-                <span class="queue-count" id="queueCount">0 句</span>
+                <span class="queue-count" id="queueCount">0 段</span>
               </div>
               <ol class="sentence-list" id="sentenceList">
-                <li class="empty-list-item">开始朗读后，分好的句子会出现在这里。</li>
+                <li class="empty-list-item">开始朗读后，分好的段落会出现在这里。</li>
               </ol>
               <div class="queue-footer">
                 <span class="queue-footer-mark" aria-hidden="true">·</span>
-                <span>按原文顺序排列；列表不能代替“下一句”。</span>
+                <span id="queueFooterText">按原文顺序排列；列表不能代替“下一段”。</span>
               </div>
             </section>
           </div>
@@ -237,8 +261,8 @@
       </main>
 
       <footer class="site-footer">
-        <span>听一句 / 逐句循环朗读</span>
-        <span class="footer-shortcuts">← → 切句&nbsp;&nbsp; 空格 暂停&nbsp;&nbsp; Esc 结束</span>
+        <span>听一句 / 分段循环朗读</span>
+        <span class="footer-shortcuts">← → 前后移动&nbsp;&nbsp; 空格 暂停&nbsp;&nbsp; Esc 结束</span>
       </footer>
     </div>
 
